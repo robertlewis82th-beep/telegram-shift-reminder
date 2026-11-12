@@ -1,0 +1,47 @@
+name: Telegram shift notifications
+
+on:
+  schedule:
+    # UTC times, converted from Asia/Tashkent (UTC+5).
+    - cron: '0 12 * * *'  # Robert 17:00
+    - cron: '0 15 * * *'  # Samuel 20:00
+    - cron: '0 18 * * *'  # Frank 23:00
+    - cron: '0 20 * * *'  # Daniel 01:00 next day
+    - cron: '0 22 * * *'  # Andrey 03:00 next day
+    - cron: '0 0 * * *'   # Adam 05:00
+  workflow_dispatch:
+    inputs:
+      test_only:
+        description: 'Send a test notification'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send Telegram message
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EVENT_NAME: ${{ github.event_name }}
+          CRON_SLOT: ${{ github.event.schedule }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            python bot.py --test
+          else
+            case "$CRON_SLOT" in
+              '0 12 * * *') export SHIFT_SLOT='17:00' ;;
+              '0 15 * * *') export SHIFT_SLOT='20:00' ;;
+              '0 18 * * *') export SHIFT_SLOT='23:00' ;;
+              '0 20 * * *') export SHIFT_SLOT='01:00' ;;
+              '0 22 * * *') export SHIFT_SLOT='03:00' ;;
+              '0 0 * * *') export SHIFT_SLOT='05:00' ;;
+              *) echo 'Unknown schedule'; exit 1 ;;
+            esac
+            python bot.py
+          fi
